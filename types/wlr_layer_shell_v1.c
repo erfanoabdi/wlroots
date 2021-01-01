@@ -341,6 +341,7 @@ static void layer_surface_role_commit(struct wlr_surface *wlr_surface) {
 		return;
 	}
 
+#if 0
 	const uint32_t horiz = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
 		ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
 	if (surface->pending.desired_width == 0 &&
@@ -360,6 +361,7 @@ static void layer_surface_role_commit(struct wlr_surface *wlr_surface) {
 			"height 0 requested without setting top and bottom anchors");
 		return;
 	}
+#endif
 
 	if (surface->surface->unmap_commit) {
 		layer_surface_reset(surface);
