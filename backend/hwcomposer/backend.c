@@ -229,6 +229,12 @@ struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display,
 	hwc_backend->hwc_vsync_last_timestamp = now.tv_sec * 1000000000 + now.tv_nsec;
 	hwc_backend->hwc_vsync_enabled = false;
 
+	// Create a udev instance for panel brightness control
+	if (getenv("WLR_HWC_SYSFS_BACKLIGHT") != NULL)
+		hwc_backend->udev = udev_new();
+	else
+		hwc_backend->udev = NULL;
+
 	// Register hwc callbacks
 	hwc_backend->impl->register_callbacks(hwc_backend);
 

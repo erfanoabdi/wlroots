@@ -41,6 +41,9 @@ struct wlr_hwcomposer_backend {
 	// of the internal one, so it makes sense to keep this into the backend.
 	int64_t hwc_vsync_last_timestamp;
 	// TODO: Also store 'vsyncPeriodNanos' if vsync2_4 is supported
+
+	// A udev instance for panel brightness control
+	struct udev *udev;
 };
 
 struct wlr_hwcomposer_output {
