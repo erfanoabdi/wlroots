@@ -149,18 +149,22 @@ static bool hwcomposer2_set_power_mode(struct wlr_hwcomposer_output *output, boo
 			output->hwc_backend->udev, "/sys/class/leds/lcd-backlight");
 
 	if (udev_backlight) {
+		const char *actual_value = NULL;
 		if (!enable) {
-			hwc2_output->restore_brightness = atoi(
-				udev_device_get_sysattr_value(
-					udev_backlight, "brightness"));
-			udev_device_set_sysattr_value(
-				udev_backlight, "brightness", "0");
+			actual_value = udev_device_get_sysattr_value(udev_backlight, "brightness");
+
+			if (actual_value) {
+				hwc2_output->restore_brightness = atoi(actual_value);
+				if (udev_device_set_sysattr_value(udev_backlight, "brightness", "0") < 0)
+					wlr_log(WLR_ERROR, "hwcomposer2: backlight: unable to set brightness to 0");
+			}
 		}
 
-		if (hwc2_output->restore_brightness == 0)
-			hwc2_output->restore_brightness = atoi(
-				udev_device_get_sysattr_value(
-					udev_backlight, "max_brightness"));
+		if (hwc2_output->restore_brightness == 0) {
+			actual_value = udev_device_get_sysattr_value(udev_backlight, "max_brightness");
+			if (actual_value)
+				hwc2_output->restore_brightness = atoi(actual_value);
+		}
 	}
 
 	if (hwc2_compat_display_set_power_mode(hwc2_output->hwc2_display, enable ?
@@ -170,8 +174,8 @@ static bool hwcomposer2_set_power_mode(struct wlr_hwcomposer_output *output, boo
 		if (enable && udev_backlight) {
 			char tmp[4];
 			snprintf(tmp, 4, "%d", hwc2_output->restore_brightness);
-			udev_device_set_sysattr_value(
-				udev_backlight, "brightness", tmp);
+			if (udev_device_set_sysattr_value(udev_backlight, "brightness", tmp) < 0)
+				wlr_log(WLR_ERROR, "hwcomposer2: backlight: unable to restore brightness");
 		}
 
 		return true;
@@ -278,6 +282,7 @@ static struct wlr_hwcomposer_output* hwcomposer2_add_output(struct wlr_hwcompose
 	hwc2_compat_layer_set_visible_region(layer, 0, 0, hwc2_output->output.hwc_width, hwc2_output->output.hwc_height);
 
 	hwc2_output->hwc2_last_present_fence = -1;
+	hwc2_output->restore_brightness = 0;
 
 	// FIXME: This being here is wrong
 	if (hwc2_output->output.hwc_is_primary) {
