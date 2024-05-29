@@ -67,6 +67,9 @@ static void backend_destroy(struct wlr_backend *wlr_backend) {
 		wlr_output_destroy(&output->wlr_output);
 	}
 
+	if (hwc_backend->udev)
+		udev_unref(hwc_backend->udev);
+
 	wlr_signal_emit_safe(&wlr_backend->events.destroy, hwc_backend);
 
 	wlr_renderer_destroy(hwc_backend->renderer);
