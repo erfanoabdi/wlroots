@@ -19,7 +19,6 @@
 #include <wlr/util/region.h>
 #include <wlr/util/log.h>
 #include "backend/hwcomposer.h"
-#include "util/signal.h"
 #include "util/time.h"
 
 #include <sys/epoll.h>
@@ -79,36 +78,38 @@ static bool output_set_custom_mode(struct wlr_output *wlr_output, int32_t width,
 		refresh = HWCOMPOSER_DEFAULT_REFRESH;
 	}
 
-	wlr_egl_destroy_surface(&hwc_backend->egl, output->egl_surface);
+	//wlr_egl_destroy_surface(&hwc_backend->egl, output->egl_surface);
 
-	output->egl_surface = eglCreateWindowSurface(hwc_backend->egl.display,
+	/*output->egl_surface = eglCreateWindowSurface(hwc_backend->egl.display,
 		hwc_backend->egl.config, (EGLNativeWindowType)output->egl_window, NULL);
 	if (output->egl_surface == EGL_NO_SURFACE) {
 		wlr_log(WLR_ERROR, "Failed to recreate EGL surface");
 		wlr_output_destroy(wlr_output);
 		return false;
-	}
+	}*/
 	wlr_log(WLR_DEBUG, "set_custom_mode: surface created");
 
 	output->frame_delay = 1000000 / refresh;
 
-	wlr_output_update_custom_mode(&output->wlr_output, width, height, refresh);
+	//wlr_output_update_custom_mode(&output->wlr_output, width, height, refresh);
 	output->wlr_output.phys_width = phys_width;
 	output->wlr_output.phys_height = phys_height;
 	return true;
 }
 
-static bool output_test(struct wlr_output *wlr_output) {
-	if ((wlr_output->pending.committed & WLR_OUTPUT_STATE_BUFFER) &&
-		(wlr_output->pending.buffer_type & WLR_OUTPUT_STATE_BUFFER_SCANOUT)) {
-		/* Direct scan-out not supported yet */
-		return false;
-	}
+static bool output_test(struct wlr_output *wlr_output,
+		const struct wlr_output_state *state) {
+    //if ((state->committed & WLR_OUTPUT_STATE_BUFFER) &&
+    //    (wlr_output->pending.buffer_type & WLR_OUTPUT_STATE_BUFFER_SCANOUT)) {
+        /* Direct scan-out not supported yet */
+	//	return false;
+    //}
 
-	return true;
+    return true;
 }
 
-static bool output_commit(struct wlr_output *wlr_output) {
+static bool output_commit(struct wlr_output *wlr_output,
+		const struct wlr_output_state *state) {
 	struct wlr_hwcomposer_output *output =
 		(struct wlr_hwcomposer_output *)wlr_output;
 	struct wlr_hwcomposer_backend *hwc_backend = output->hwc_backend;
@@ -119,8 +120,8 @@ static bool output_commit(struct wlr_output *wlr_output) {
 		return false;
 	}
 
-	if (wlr_output->pending.committed & WLR_OUTPUT_STATE_ENABLED) {
-		wlr_log(WLR_DEBUG, "output_commit: STATE_ENABLE, pending state %d", wlr_output->pending.enabled);
+    if (state->committed & WLR_OUTPUT_STATE_ENABLED) {
+        wlr_log(WLR_DEBUG, "output_commit: STATE_ENABLE, pending state %d", wlr_output->pending.enabled);
 
 		if (!hwc_backend->impl->set_power_mode(output, wlr_output->pending.enabled)) {
 			wlr_log(WLR_ERROR, "output_commit: unable to change display power mode");
@@ -132,14 +133,14 @@ static bool output_commit(struct wlr_output *wlr_output) {
 			output->frame_delay) != 0) {
 			wlr_log(WLR_ERROR, "Unable to restart vsync timer");
 		}
-	}
+    }
 
-	if (!wlr_output->enabled) {
+    if (!wlr_output->enabled) {
 		return true;
 	}
 
-	if (wlr_output->pending.committed & WLR_OUTPUT_STATE_MODE) {
-		if (!output_set_custom_mode(wlr_output,
+    if (state->committed & WLR_OUTPUT_STATE_MODE) {
+        if (!output_set_custom_mode(wlr_output,
 				wlr_output->pending.custom_mode.width,
 				wlr_output->pending.custom_mode.height,
 				wlr_output->pending.custom_mode.refresh,
@@ -147,15 +148,15 @@ static bool output_commit(struct wlr_output *wlr_output) {
 				wlr_output->phys_height)) {
 			return false;
 		}
-	}
+    }
 
-	if (wlr_output->pending.committed & WLR_OUTPUT_STATE_BUFFER) {
-		pixman_region32_t *damage = NULL;
-		if (wlr_output->pending.committed & WLR_OUTPUT_STATE_DAMAGE) {
-			damage = &wlr_output->pending.damage;
-		}
+    if (state->committed & WLR_OUTPUT_STATE_BUFFER) {
+        pixman_region32_t *damage = NULL;
+        if (state->committed & WLR_OUTPUT_STATE_DAMAGE) {
+            damage = &wlr_output->pending.damage;
+        }
 
-		switch (wlr_output->pending.buffer_type) {
+        /*switch (wlr_output->pending.buffer_type) {
 		case WLR_OUTPUT_STATE_BUFFER_RENDER:
 			if (!wlr_egl_swap_buffers(&hwc_backend->egl,
 					output->egl_surface, damage)) {
@@ -166,10 +167,10 @@ static bool output_commit(struct wlr_output *wlr_output) {
 		case WLR_OUTPUT_STATE_BUFFER_SCANOUT:
 			wlr_log(WLR_ERROR, "WLR_OUTPUT_STATE_BUFFER_SCANOUT not implemented");
 			break;
-		}
-	}
+		}*/
+    }
 
-	wlr_egl_unset_current(&hwc_backend->egl);
+    //wlr_egl_unset_current(&hwc_backend->egl);
 
 	if (should_schedule_frame) {
 		// FIXME: wlroots submits a presentation event with commit_seq =
@@ -184,56 +185,6 @@ static bool output_commit(struct wlr_output *wlr_output) {
 		};
 		wlr_output_send_present(&output->wlr_output, &present_event);
 		schedule_frame(output);
-	}
-
-	return true;
-}
-
-static bool output_attach_render(struct wlr_output *wlr_output, int *buffer_age) {
-	struct wlr_hwcomposer_output *output =
-		(struct wlr_hwcomposer_output *)wlr_output;
-	return wlr_egl_make_current(&output->hwc_backend->egl, output->egl_surface,
-		buffer_age);
-}
-
-static bool output_handle_damage(struct wlr_output *wlr_output, pixman_region32_t *damage) {
-	struct wlr_hwcomposer_output *output =
-		(struct wlr_hwcomposer_output *)wlr_output;
-
-	if (damage == NULL) {
-		return true;
-	}
-
-	/*
-	 * HACK: transform the damaged area to take in account output
-	 * transformations.
-	 *
-	 * This being here is wrong, as it should be a job of the compositor
-	 * and we're doing an assumption on behalf of them.
-	 */
-
-	int width, height;
-	wlr_output_transformed_resolution(wlr_output, &width, &height);
-
-	pixman_region32_t frame_damage;
-	pixman_region32_init(&frame_damage);
-
-	wlr_region_transform(&frame_damage, damage,
-		wlr_output_transform_invert(wlr_output->transform), width, height);
-
-	if (wlr_output->needs_frame) {
-		/*
-		 * By checking for needs_frame, we're predicting the compositor's
-		 * behaviour, and it's horribly wrong.
-		 *
-		 * Unfortunately, the alternative would be to damage the whole
-		 * region when rollbacks happen.
-		 *
-		 * This will probably also break the "damage-tracking" debug
-		 * phoc feature.
-		*/
-		return wlr_egl_set_damage_region(&output->hwc_backend->egl,
-			output->egl_surface, &frame_damage);
 	}
 
 	return true;
@@ -261,23 +212,14 @@ static void output_destroy(struct wlr_output *wlr_output) {
 		wl_event_source_remove(output->vsync_timer);
 	}
 
-	wlr_egl_destroy_surface(&hwc_backend->egl, output->egl_surface);
+	//wlr_egl_destroy_surface(&hwc_backend->egl, output->egl_surface);
 
 	hwc_backend->impl->destroy_output(output);
 }
 
-static void output_rollback_render(struct wlr_output *wlr_output) {
-	struct wlr_hwcomposer_output *output =
-		(struct wlr_hwcomposer_output *)wlr_output;
-	wlr_egl_unset_current(&output->hwc_backend->egl);
-}
-
 static const struct wlr_output_impl output_impl = {
 	.destroy = output_destroy,
-	.attach_render = output_attach_render,
-	.handle_damage = output_handle_damage,
 	.commit = output_commit,
-	.rollback_render = output_rollback_render,
 	.test = output_test,
 };
 
@@ -343,8 +285,10 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 
 	struct wlr_hwcomposer_output *output = hwc_backend->impl->add_output(hwc_backend, display);
 	output->hwc_backend = hwc_backend;
-	wlr_output_init(&output->wlr_output, &hwc_backend->backend, &output_impl,
-		hwc_backend->display);
+    struct wlr_output_state state;
+    wlr_output_state_init(&state);
+    wlr_output_init(&output->wlr_output, &hwc_backend->backend, &output_impl,
+		hwc_backend->display, &state);
 	struct wlr_output *wlr_output = &output->wlr_output;
 
 	wl_list_insert(&hwc_backend->outputs, &output->link);
@@ -358,7 +302,7 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 		output->hwc_width, output->hwc_height,
 		HAL_PIXEL_FORMAT_RGBA_8888, hwc_backend->impl->present, output);
 
-	output->egl_display = hwc_backend->egl.display;
+	//output->egl_display = hwc_backend->egl.display;
 
 	if (!output_set_custom_mode(wlr_output, output->hwc_width,
 			output->hwc_height,
@@ -369,12 +313,12 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 		goto error;
 	}
 
-	if (wlr_egl_make_current(&hwc_backend->egl, output->egl_surface,
+	/*if (wlr_egl_make_current(&hwc_backend->egl, output->egl_surface,
 			NULL)) {
 		wlr_renderer_begin(hwc_backend->renderer, wlr_output->width, wlr_output->height);
 		wlr_renderer_clear(hwc_backend->renderer, (float[]){ 1.0, 1.0, 1.0, 1.0 });
 		wlr_renderer_end(hwc_backend->renderer);
-	}
+	}*/
 
 	strncpy(wlr_output->make, "hwcomposer", sizeof(wlr_output->make));
 	strncpy(wlr_output->model, "hwcomposer", sizeof(wlr_output->model));
@@ -402,9 +346,9 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 
 	if (hwc_backend->started) {
 		wl_event_source_timer_update(output->vsync_timer, output->frame_delay);
-		wlr_output_update_enabled(wlr_output, true);
-		wlr_signal_emit_safe(&hwc_backend->backend.events.new_output, wlr_output);
-	}
+        wlr_output_state_set_enabled(&state, true);
+        wl_signal_emit_mutable(&hwc_backend->backend.events.new_output, wlr_output);
+    }
 
 	return wlr_output;
 

@@ -198,8 +198,8 @@ static struct wlr_backend *attempt_headless_backend(
 }
 
 static struct wlr_backend *attempt_hwcomposer_backend(
-		struct wl_display *display,    wlr_renderer_create_func_t create_renderer_func) {
-	struct wlr_backend *backend = wlr_hwcomposer_backend_create(display, create_renderer_func);
+		struct wl_display *display) {
+	struct wlr_backend *backend = wlr_hwcomposer_backend_create(display);
 	if (backend == NULL) {
 		return NULL;
 	}
@@ -292,7 +292,7 @@ static bool attempt_backend_by_name(struct wl_display *display,
 			return attempt_drm_backend(display, multi, *session_ptr);
 		}
 	} else if (strcmp(name, "hwcomposer") == 0) {
-		backend = attempt_hwcomposer_backend(display, create_renderer_func);
+		backend = attempt_hwcomposer_backend(display);
 	} else {
 		wlr_log(WLR_ERROR, "unrecognized backend '%s'", name);
 		return false;
@@ -393,7 +393,7 @@ struct wlr_backend *wlr_backend_autocreate(struct wl_display *display,
 	const char *egl_platform = getenv("EGL_PLATFORM");
 	if (egl_platform) {
 		struct wlr_backend *hwc_backend =
-			attempt_hwcomposer_backend(display, create_renderer_func);
+			attempt_hwcomposer_backend(display);
 		if (hwc_backend) {
 			wlr_multi_backend_add(multi, hwc_backend);
 			return multi;

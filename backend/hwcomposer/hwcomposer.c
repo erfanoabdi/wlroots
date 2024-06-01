@@ -86,9 +86,11 @@ static bool hwcomposer_set_power_mode(struct wlr_hwcomposer_output *output, bool
 		result = hwc1->hwc_device_ptr->blank(hwc1->hwc_device_ptr, 0, enable ? 0 : 1);
 
 	if (result) {
-		wlr_output_update_enabled(&output->wlr_output, enable);
+        struct wlr_output_state state;
+        wlr_output_state_init(&state);
+        wlr_output_state_set_enabled(&state, enable);
 
-		return true;
+        return true;
 	}
 
 	return false;

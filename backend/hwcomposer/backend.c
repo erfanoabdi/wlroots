@@ -2,7 +2,6 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
-#include "util/signal.h"
 #include <stdlib.h>
 #include <wayland-util.h>
 #include <wlr/interfaces/wlr_output.h>
@@ -44,11 +43,13 @@ static bool backend_start(struct wlr_backend *wlr_backend) {
 	// FIXME: Drop this
 	struct wlr_hwcomposer_output *output;
 	wl_list_for_each(output, &hwc_backend->outputs, link) {
-		wl_event_source_timer_update(output->vsync_timer, output->frame_delay);
-		wlr_output_update_enabled(&output->wlr_output, true);
-		wlr_signal_emit_safe(&hwc_backend->backend.events.new_output,
-			&output->wlr_output);
-	}
+        struct wlr_output_state state;
+        wlr_output_state_init(&state);
+        wl_event_source_timer_update(output->vsync_timer, output->frame_delay);
+        wlr_output_state_set_enabled(&state, true);
+        wl_signal_emit_mutable(&hwc_backend->backend.events.new_output,
+                               &output->wlr_output);
+    }
 
 	return true;
 }
@@ -67,27 +68,26 @@ static void backend_destroy(struct wlr_backend *wlr_backend) {
 		wlr_output_destroy(&output->wlr_output);
 	}
 
-	if (hwc_backend->udev)
-		udev_unref(hwc_backend->udev);
+	//if (hwc_backend->udev)
+	//	udev_unref(hwc_backend->udev);
 
-	wlr_signal_emit_safe(&wlr_backend->events.destroy, hwc_backend);
+    wl_signal_emit_mutable(&wlr_backend->events.destroy, hwc_backend);
 
-	wlr_renderer_destroy(hwc_backend->renderer);
-	wlr_egl_finish(&hwc_backend->egl);
+    wlr_renderer_destroy(hwc_backend->renderer);
+	//wlr_egl_finish(&hwc_backend->egl);
 	free(hwc_backend);
 }
 
-static struct wlr_renderer *backend_get_renderer(
+/*static struct wlr_renderer *backend_get_renderer(
 		struct wlr_backend *wlr_backend) {
 	struct wlr_hwcomposer_backend *hwc_backend =
 		(struct wlr_hwcomposer_backend *)wlr_backend;
 	return hwc_backend->renderer;
-}
+}*/
 
 static const struct wlr_backend_impl backend_impl = {
 	.start = backend_start,
 	.destroy = backend_destroy,
-	.get_renderer = backend_get_renderer,
 };
 
 static void handle_display_destroy(struct wl_listener *listener, void *data) {
@@ -138,8 +138,7 @@ void hwcomposer_init(struct wlr_hwcomposer_backend *hwc_backend) {
 	}
 }
 
-struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display,
-		wlr_renderer_create_func_t create_renderer_func) {
+struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display) {
 	int err;
 	struct wlr_hwcomposer_backend *hwc_backend;
 	hw_module_t *hwc_module = 0;
@@ -208,13 +207,6 @@ struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display,
 		EGL_NONE
 	};
 
-	if (!create_renderer_func) {
-		create_renderer_func = wlr_renderer_autocreate;
-	}
-
-	hwc_backend->renderer = create_renderer_func(&hwc_backend->egl, EGL_PLATFORM_ANDROID_KHR,
-		NULL, config_attribs, HAL_PIXEL_FORMAT_RGBA_8888);
-
 	if (!hwc_backend->renderer) {
 		wlr_log(WLR_ERROR, "Failed to create renderer");
 		free(hwc_backend);
@@ -224,7 +216,7 @@ struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display,
 	hwc_backend->display_destroy.notify = handle_display_destroy;
 	wl_display_add_destroy_listener(display, &hwc_backend->display_destroy);
 
-	hwc_backend->egl.display = eglGetDisplay(NULL);
+	//hwc_backend->egl.display = eglGetDisplay(NULL);
 
 	// Prepare global vsync variables
 	struct timespec now;
@@ -233,9 +225,9 @@ struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display,
 	hwc_backend->hwc_vsync_enabled = false;
 
 	// Create a udev instance for panel brightness control
-	if (getenv("WLR_HWC_SYSFS_BACKLIGHT") != NULL)
+	/*if (getenv("WLR_HWC_SYSFS_BACKLIGHT") != NULL)
 		hwc_backend->udev = udev_new();
-	else
+	else*/
 		hwc_backend->udev = NULL;
 
 	// Register hwc callbacks

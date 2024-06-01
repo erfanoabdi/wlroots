@@ -19,7 +19,6 @@ struct wlr_hwcomposer_backend {
 	struct wlr_backend backend;
 
 	const struct hwcomposer_impl *impl;
-	struct wlr_egl egl;
 	struct wlr_renderer *renderer;
 	struct wl_display *display;
 	struct wl_list outputs;
@@ -55,8 +54,6 @@ struct wlr_hwcomposer_output {
 	struct ANativeWindow *egl_window;
 	void *egl_display;
 	void *egl_surface;
-
-	struct wlr_egl egl;
 
 	bool hwc_is_primary;
 	uint64_t hwc_display_id;
