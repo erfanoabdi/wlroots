@@ -1,1 +1,10 @@
 /subprojects/
+.pc
+debian/tmp
+debian/.debhelper
+debian/*.substvars
+debian/*.log
+debian/files
+debian/debhelper-build-stamp
+debian/libwlroots*/*
+/.vscode
