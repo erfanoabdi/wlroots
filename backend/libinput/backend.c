@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+#include <fcntl.h>
 #include <assert.h>
 #include <libinput.h>
 #include <stdlib.h>
@@ -8,6 +10,10 @@
 #include "backend/libinput.h"
 #include "util/env.h"
 
+#if WLR_HAS_DROIDIAN_EXTENSIONS
+#include <unistd.h>
+#endif // WLR_HAS_DROIDIAN_EXTENSIONS
+
 static struct wlr_libinput_backend *get_libinput_backend_from_backend(
 		struct wlr_backend *wlr_backend) {
 	assert(wlr_backend_is_libinput(wlr_backend));
@@ -17,15 +23,29 @@ static struct wlr_libinput_backend *get_libinput_backend_from_backend(
 
 static int libinput_open_restricted(const char *path,
 		int flags, void *_backend) {
+#if WLR_HAS_DROIDIAN_EXTENSIONS
+	// Droidian: avoid going through wlr_session to avoid take/pause/release
+	// loops with ever-changing file descriptors on sleep "loops".
+	// This doesn't assume a multi-seat environment, but we don't care
+	// about that for now.
+	//
+	// This is equivalent to the 'noop' wlroots session backend.
+	return open(path, O_RDWR | O_CLOEXEC | O_NONBLOCK);
+#else
 	struct wlr_libinput_backend *backend = _backend;
 	struct wlr_device *dev = wlr_session_open_file(backend->session, path);
 	if (dev == NULL) {
 		return -1;
 	}
 	return dev->fd;
+#endif // WLR_HAS_DROIDIAN_EXTENSIONS
 }
 
 static void libinput_close_restricted(int fd, void *_backend) {
+#if WLR_HAS_DROIDIAN_EXTENSIONS
+	// Droidian: as above
+	close(fd);
+#else
 	struct wlr_libinput_backend *backend = _backend;
 
 	struct wlr_device *dev;
@@ -39,6 +59,7 @@ static void libinput_close_restricted(int fd, void *_backend) {
 	if (found) {
 		wlr_session_close_file(backend->session, dev);
 	}
+#endif // WLR_HAS_DROIDIAN_EXTENSIONS
 }
 
 static const struct libinput_interface libinput_impl = {
@@ -175,6 +196,16 @@ static void session_signal(struct wl_listener *listener, void *data) {
 
 	if (session->active) {
 		libinput_resume(backend->libinput_context);
+
+		// HACK: Forcibly process events if there are any queued
+		// On some devices it has been observed event processing
+		// getting stuck on resume.
+		enum libinput_event_type next_event =
+			libinput_next_event_type(backend->libinput_context);
+		if (next_event != LIBINPUT_EVENT_NONE) {
+			handle_libinput_readable(libinput_get_fd(backend->libinput_context),
+				WL_EVENT_READABLE, backend);
+		}
 	} else {
 		libinput_suspend(backend->libinput_context);
 	}

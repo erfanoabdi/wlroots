@@ -27,3 +27,4 @@ endforeach
 subdir('multi')
 subdir('wayland')
 subdir('headless')
+subdir('hwcomposer')

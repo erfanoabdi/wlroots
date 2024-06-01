@@ -7,7 +7,7 @@ project(
 	default_options: [
 		'c_std=c11',
 		'warning_level=2',
-		'werror=true',
+		'werror=false',
 	],
 )
 
@@ -47,6 +47,18 @@ add_project_arguments(cc.get_supported_arguments([
 	'-Wno-missing-field-initializers',
 	'-Wno-unused-parameter',
 ]), language: 'c')
+
+add_project_link_arguments(
+       [
+               '-lhardware',
+               '-lsync',
+               '-lhybris-hwcomposerwindow',
+               '-lhwc2',
+               '-lhybris-common'
+       ],
+       language: 'c',
+)
+
 
 # Compute the relative path used by compiler invocations.
 source_root = meson.current_source_dir().split('/')
@@ -156,6 +168,10 @@ wlr_deps = [
 	math,
 	rt,
 ]
+
+add_project_arguments([
+	'-I/usr/include/android',
+], language: 'c')
 
 subdir('protocol')
 subdir('render')

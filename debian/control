@@ -41,6 +41,9 @@ Build-Depends: dpkg-dev (>= 1.22.5),
  pkgconf,
  wayland-protocols (>= 1.32),
  xwayland,
+ android-headers,
+ libhybris-dev,
+ libhardware-dev,
 Standards-Version: 4.6.2
 Section: libs
 Homepage: https://gitlab.freedesktop.org/wlroots/wlroots/
@@ -85,6 +88,9 @@ Depends:
  libxkbcommon-dev,
  libx11-xcb-dev,
  wayland-protocols (>= 1.24),
+ android-headers,
+ libhybris-dev,
+ libhardware-dev,
 Description: Modular wayland compositor library - development headers
  wlroots is a set of pluggable, composable modules to build a Wayland
  compositor.
