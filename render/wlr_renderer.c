@@ -229,6 +229,10 @@ bool wlr_renderer_init_wl_display(struct wlr_renderer *r,
 		return false;
 	}
 
+	if (wlr_renderer_is_android(r)) {
+		return android_init_wl_display(r, wl_display);
+	}
+
 	if (wlr_renderer_get_dmabuf_texture_formats(r) != NULL &&
 			wlr_renderer_get_drm_fd(r) >= 0) {
 		if (wlr_drm_create(wl_display, r) == NULL) {

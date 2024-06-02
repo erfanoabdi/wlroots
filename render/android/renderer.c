@@ -108,9 +108,7 @@ static bool android_read_pixels(struct wlr_renderer *wlr_renderer,
 }
 
 static int android_get_drm_fd(struct wlr_renderer *wlr_renderer) {
-	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
-
-	return renderer->wlr_gles_renderer->impl->get_drm_fd(renderer->wlr_gles_renderer);
+	return -1;
 }
 
 static uint32_t android_get_render_buffer_caps(struct wlr_renderer *wlr_renderer) {
@@ -183,4 +181,20 @@ struct wlr_renderer *wlr_android_renderer_create(void) {
 	renderer->egl = egl;
 
 	return &renderer->wlr_renderer;
+}
+
+bool android_init_wl_display(struct wlr_renderer *wlr_renderer,
+		struct wl_display *wl_display) {
+	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
+
+	if (renderer->egl->exts.bind_wayland_display_wl) {
+		if (!wlr_egl_bind_display(renderer->egl, wl_display)) {
+			wlr_log(WLR_ERROR, "Failed to bind wl_display to EGL");
+			return false;
+		}
+	} else {
+		wlr_log(WLR_INFO, "EGL_WL_bind_wayland_display is not supported");
+	}
+
+	return true;
 }
