@@ -18,8 +18,71 @@ struct wlr_android_renderer *android_get_renderer(
 	return renderer;
 }
 
+static void destroy_buffer(struct wlr_android_buffer *buffer) {
+	wl_list_remove(&buffer->link);
+	wlr_addon_finish(&buffer->addon);
+
+	free(buffer);
+}
+
+static void handle_buffer_destroy(struct wlr_addon *addon) {
+	struct wlr_android_buffer *buffer =
+		wl_container_of(addon, buffer, addon);
+	destroy_buffer(buffer);
+}
+
+static const struct wlr_addon_interface buffer_addon_impl = {
+	.name = "wlr_android_buffer",
+	.destroy = handle_buffer_destroy,
+};
+
+static struct wlr_android_buffer *get_or_create_buffer(struct wlr_android_renderer *renderer,
+		struct wlr_buffer *wlr_buffer) {
+	struct wlr_addon *addon =
+		wlr_addon_find(&wlr_buffer->addons, renderer, &buffer_addon_impl);
+	if (addon) {
+		struct wlr_android_buffer *buffer = wl_container_of(addon, buffer, addon);
+		return buffer;
+	}
+
+	struct wlr_android_buffer *buffer = calloc(1, sizeof(*buffer));
+	if (buffer == NULL) {
+		wlr_log_errno(WLR_ERROR, "Allocation failed");
+		return NULL;
+	}
+	buffer->buffer = wlr_buffer;
+	buffer->renderer = renderer;
+
+	if (!renderer->window) {
+		wlr_log(WLR_ERROR, "No native window set");
+		buffer->egl_surface = EGL_NO_SURFACE;
+	} else {
+		buffer->egl_surface = eglCreateWindowSurface(renderer->egl->display,
+			renderer->egl->config, renderer->window, NULL);
+		if (buffer->egl_surface == EGL_NO_SURFACE) {
+			wlr_log(WLR_ERROR, "Failed to recreate EGL surface");
+			return NULL;
+		}
+
+		wlr_addon_init(&buffer->addon, &wlr_buffer->addons, renderer,
+			&buffer_addon_impl);
+
+		wl_list_insert(&renderer->buffers, &buffer->link);
+	}
+
+	wlr_log(WLR_DEBUG, "Created WindowSurface for buffer %dx%d",
+			wlr_buffer->width, wlr_buffer->height);
+
+	return buffer;
+}
+
 static void android_destroy(struct wlr_renderer *wlr_renderer) {
 	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
+
+	struct wlr_android_buffer *buffer, *buffer_tmp;
+	wl_list_for_each_safe(buffer, buffer_tmp, &renderer->buffers, link) {
+		destroy_buffer(buffer);
+	}
 
 	renderer->wlr_gles_renderer->impl->destroy(renderer->wlr_gles_renderer);
 }
@@ -28,7 +91,17 @@ static bool android_bind_buffer(struct wlr_renderer *wlr_renderer,
 		struct wlr_buffer *wlr_buffer) {
 	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
 
-	return renderer->wlr_gles_renderer->impl->bind_buffer(renderer->wlr_gles_renderer, wlr_buffer);
+	if (wlr_buffer == NULL) {
+		wlr_egl_unset_current(renderer->egl);
+		return true;
+	}
+
+	struct wlr_android_buffer *buffer = get_or_create_buffer(renderer, wlr_buffer);
+	if (buffer == NULL) {
+		return false;
+	}
+
+	return wlr_egl_make_current_with_surface(renderer->egl, buffer->egl_surface);
 }
 
 static bool android_begin(struct wlr_renderer *wlr_renderer, uint32_t width,
@@ -184,6 +257,7 @@ struct wlr_renderer *wlr_android_renderer_create(void) {
 		return NULL;
 	}
 
+	wl_list_init(&renderer->buffers);
 	wlr_renderer_init(&renderer->wlr_renderer, &renderer_impl);
 	renderer->egl = egl;
 

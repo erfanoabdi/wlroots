@@ -134,6 +134,7 @@ bool wlr_egl_restore_context(struct wlr_egl_context *context);
  * Callers are expected to clear the current context when they are done by
  * calling wlr_egl_unset_current().
  */
+bool wlr_egl_make_current_with_surface(struct wlr_egl *egl, EGLSurface surface);
 bool wlr_egl_make_current(struct wlr_egl *egl);
 
 bool wlr_egl_unset_current(struct wlr_egl *egl);

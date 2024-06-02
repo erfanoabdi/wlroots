@@ -760,13 +760,17 @@ bool wlr_egl_destroy_image(struct wlr_egl *egl, EGLImage image) {
 	return egl->procs.eglDestroyImageKHR(egl->display, image);
 }
 
-bool wlr_egl_make_current(struct wlr_egl *egl) {
-	if (!eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+bool wlr_egl_make_current_with_surface(struct wlr_egl *egl, EGLSurface surface) {
+	if (!eglMakeCurrent(egl->display, surface, surface,
 			egl->context)) {
 		wlr_log(WLR_ERROR, "eglMakeCurrent failed");
 		return false;
 	}
 	return true;
+}
+
+bool wlr_egl_make_current(struct wlr_egl *egl) {
+	return wlr_egl_make_current_with_surface(egl, EGL_NO_SURFACE);
 }
 
 bool wlr_egl_unset_current(struct wlr_egl *egl) {
