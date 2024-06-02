@@ -197,13 +197,6 @@ static struct wlr_texture *android_texture_from_buffer(struct wlr_renderer *wlr_
 	return renderer->wlr_gles_renderer->impl->texture_from_buffer(renderer->wlr_gles_renderer, wlr_buffer);
 }
 
-static struct wlr_render_pass *android_begin_buffer_pass(struct wlr_renderer *wlr_renderer,
-		struct wlr_buffer *wlr_buffer, const struct wlr_buffer_pass_options *options) {
-	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
-
-	return renderer->wlr_gles_renderer->impl->begin_buffer_pass(renderer->wlr_gles_renderer, wlr_buffer, options);
-}
-
 static struct wlr_render_timer *android_render_timer_create(struct wlr_renderer *wlr_renderer) {
 	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
 
@@ -233,7 +226,6 @@ static const struct wlr_renderer_impl renderer_impl = {
 	.get_drm_fd = android_get_drm_fd,
 	.get_render_buffer_caps = android_get_render_buffer_caps,
 	.texture_from_buffer = android_texture_from_buffer,
-	.begin_buffer_pass = android_begin_buffer_pass,
 	.render_timer_create = android_render_timer_create,
 	.set_nativewindow = android_set_nativewindow,
 };
