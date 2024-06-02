@@ -20,6 +20,7 @@
 #if WLR_HAS_GLES2_RENDERER
 #include <wlr/render/egl.h>
 #include <wlr/render/gles2.h>
+#include <wlr/render/android.h>
 #endif
 
 #if WLR_HAS_VULKAN_RENDERER
@@ -378,6 +379,12 @@ static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int
 	if ((is_auto && WLR_HAS_GLES2_RENDERER) || strcmp(renderer_name, "gles2") == 0) {
 		if (!open_preferred_drm_fd(backend, &drm_fd, &own_drm_fd)) {
 			log_creation_failure(is_auto, "Cannot create GLES2 renderer: no DRM FD available");
+			renderer = wlr_android_renderer_create();
+			if (renderer) {
+				goto out;
+			} else {
+				log_creation_failure(is_auto, "Failed to create an Android renderer");
+			}
 		} else {
 #if WLR_HAS_GLES2_RENDERER
 			renderer = wlr_gles2_renderer_create_with_drm_fd(drm_fd);
@@ -388,6 +395,12 @@ static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int
 				goto out;
 			} else {
 				log_creation_failure(is_auto, "Failed to create a GLES2 renderer");
+				renderer = wlr_android_renderer_create();
+				if (renderer) {
+					goto out;
+				} else {
+					log_creation_failure(is_auto, "Failed to create an Android renderer");
+				}
 			}
 		}
 	}

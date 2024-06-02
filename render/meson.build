@@ -39,3 +39,4 @@ endif
 subdir('pixman')
 
 subdir('allocator')
+subdir('android')
