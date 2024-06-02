@@ -12,6 +12,42 @@
 #include <xf86drm.h>
 #include "render/egl.h"
 #include "util/env.h"
+#include <system/graphics-base.h>
+
+static bool egl_get_config(EGLDisplay disp, const EGLint *attribs,
+		EGLConfig *out, EGLint visual_id) {
+	EGLint count = 0, matched = 0, ret;
+
+	ret = eglGetConfigs(disp, NULL, 0, &count);
+	if (ret == EGL_FALSE || count == 0) {
+		wlr_log(WLR_ERROR, "eglGetConfigs returned no configs");
+		return false;
+	}
+
+	EGLConfig configs[count];
+
+	ret = eglChooseConfig(disp, attribs, configs, count, &matched);
+	if (ret == EGL_FALSE) {
+		wlr_log(WLR_ERROR, "eglChooseConfig failed");
+		return false;
+	}
+
+	for (int i = 0; i < matched; ++i) {
+		EGLint visual;
+		if (!eglGetConfigAttrib(disp, configs[i],
+				EGL_NATIVE_VISUAL_ID, &visual)) {
+			continue;
+		}
+
+		if (!visual_id || visual == visual_id) {
+			*out = configs[i];
+			return true;
+		}
+	}
+
+	wlr_log(WLR_ERROR, "no valid egl config found");
+	return false;
+}
 
 static enum wlr_log_importance egl_log_importance_to_wlr(EGLint type) {
 	switch (type) {
@@ -192,7 +228,7 @@ static void init_dmabuf_formats(struct wlr_egl *egl) {
 	}
 }
 
-static struct wlr_egl *egl_create(void) {
+static struct wlr_egl *egl_create(bool is_android) {
 	const char *client_exts_str = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
 	if (client_exts_str == NULL) {
 		if (eglGetError() == EGL_BAD_DISPLAY) {
@@ -205,7 +241,7 @@ static struct wlr_egl *egl_create(void) {
 
 	wlr_log(WLR_INFO, "Supported EGL client extensions: %s", client_exts_str);
 
-	if (!check_egl_ext(client_exts_str, "EGL_EXT_platform_base")) {
+	if (!is_android && !check_egl_ext(client_exts_str, "EGL_EXT_platform_base")) {
 		wlr_log(WLR_ERROR, "EGL_EXT_platform_base not supported");
 		return NULL;
 	}
@@ -215,9 +251,11 @@ static struct wlr_egl *egl_create(void) {
 		wlr_log_errno(WLR_ERROR, "Allocation failed");
 		return NULL;
 	}
+	egl->config = EGL_NO_CONFIG_KHR;
 
-	load_egl_proc(&egl->procs.eglGetPlatformDisplayEXT,
-		"eglGetPlatformDisplayEXT");
+	if (!is_android)
+		load_egl_proc(&egl->procs.eglGetPlatformDisplayEXT,
+			"eglGetPlatformDisplayEXT");
 
 	egl->exts.KHR_platform_gbm = check_egl_ext(client_exts_str,
 			"EGL_KHR_platform_gbm");
@@ -261,7 +299,7 @@ static struct wlr_egl *egl_create(void) {
 	return egl;
 }
 
-static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
+static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display, bool is_android) {
 	egl->display = display;
 
 	EGLint major, minor;
@@ -282,6 +320,12 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
 		load_egl_proc(&egl->procs.eglDestroyImageKHR, "eglDestroyImageKHR");
 	}
 
+	if (check_egl_ext(display_exts_str, "EGL_KHR_partial_update")) {
+		egl->exts.partial_update_ext = true;
+		load_egl_proc(&egl->procs.eglSetDamageRegionKHR,
+			"eglSetDamageRegionKHR");
+	}
+
 	egl->exts.EXT_image_dma_buf_import =
 		check_egl_ext(display_exts_str, "EGL_EXT_image_dma_buf_import");
 	if (check_egl_ext(display_exts_str,
@@ -296,8 +340,18 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
 	egl->exts.EXT_create_context_robustness =
 		check_egl_ext(display_exts_str, "EGL_EXT_create_context_robustness");
 
+	if (check_egl_ext(display_exts_str, "EGL_WL_bind_wayland_display")) {
+		egl->exts.bind_wayland_display_wl = true;
+		load_egl_proc(&egl->procs.eglBindWaylandDisplayWL,
+			"eglBindWaylandDisplayWL");
+		load_egl_proc(&egl->procs.eglUnbindWaylandDisplayWL,
+			"eglUnbindWaylandDisplayWL");
+		load_egl_proc(&egl->procs.eglQueryWaylandBufferWL,
+			"eglQueryWaylandBufferWL");
+	}
+
 	const char *device_exts_str = NULL, *driver_name = NULL;
-	if (egl->exts.EXT_device_query) {
+	if (!is_android && egl->exts.EXT_device_query) {
 		EGLAttrib device_attrib;
 		if (!egl->procs.eglQueryDisplayAttribEXT(egl->display,
 				EGL_DEVICE_EXT, &device_attrib)) {
@@ -335,6 +389,22 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display) {
 			check_egl_ext(device_exts_str, "EGL_EXT_device_drm");
 		egl->exts.EXT_device_drm_render_node =
 			check_egl_ext(device_exts_str, "EGL_EXT_device_drm_render_node");
+	} else {
+		const EGLint config_attribs[] = {
+			EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+			EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+			EGL_RED_SIZE, 8,
+			EGL_GREEN_SIZE, 8,
+			EGL_BLUE_SIZE, 8,
+			EGL_ALPHA_SIZE, 8,
+			EGL_DEPTH_SIZE, 24,
+			EGL_STENCIL_SIZE, 8,
+			EGL_NONE
+		};
+		if (!egl_get_config(egl->display, config_attribs, &egl->config, HAL_PIXEL_FORMAT_RGBA_8888)) {
+			wlr_log(WLR_ERROR, "Failed to get EGL config");
+			return false;
+		}
 	}
 
 	if (!check_egl_ext(display_exts_str, "EGL_KHR_no_config_context") &&
@@ -380,14 +450,19 @@ static bool egl_init(struct wlr_egl *egl, EGLenum platform,
 	display_attribs[display_attribs_len++] = EGL_NONE;
 	assert(display_attribs_len < sizeof(display_attribs) / sizeof(display_attribs[0]));
 
-	EGLDisplay display = egl->procs.eglGetPlatformDisplayEXT(platform,
-		remote_display, display_attribs);
+	EGLDisplay display = EGL_NO_DISPLAY;
+	if (platform != EGL_PLATFORM_ANDROID_KHR) {
+		display = egl->procs.eglGetPlatformDisplayEXT(platform,
+			remote_display, display_attribs);
+	} else {
+		display = eglGetDisplay(remote_display);
+	}
 	if (display == EGL_NO_DISPLAY) {
 		wlr_log(WLR_ERROR, "Failed to create EGL display");
 		return false;
 	}
 
-	if (!egl_init_display(egl, display)) {
+	if (!egl_init_display(egl, display, platform == EGL_PLATFORM_ANDROID_KHR)) {
 		if (egl->exts.KHR_display_reference) {
 			eglTerminate(display);
 		}
@@ -418,7 +493,7 @@ static bool egl_init(struct wlr_egl *egl, EGLenum platform,
 	attribs[atti++] = EGL_NONE;
 	assert(atti <= sizeof(attribs)/sizeof(attribs[0]));
 
-	egl->context = eglCreateContext(egl->display, EGL_NO_CONFIG_KHR,
+	egl->context = eglCreateContext(egl->display, egl->config,
 		EGL_NO_CONTEXT, attribs);
 	if (egl->context == EGL_NO_CONTEXT) {
 		wlr_log(WLR_ERROR, "Failed to create EGL context");
@@ -518,8 +593,26 @@ static int open_render_node(int drm_fd) {
 	return render_fd;
 }
 
+struct wlr_egl *wlr_egl_create_for_android(void) {
+	struct wlr_egl *egl = egl_create(true);
+	if (egl == NULL) {
+		wlr_log(WLR_ERROR, "Failed to create EGL context");
+		return NULL;
+	}
+
+	if (egl_init(egl, EGL_PLATFORM_ANDROID_KHR, NULL)) {
+		wlr_log(WLR_DEBUG, "Using EGL_PLATFORM_ANDROID_KHR");
+		return egl;
+	}
+
+	wlr_log(WLR_ERROR, "Failed to initialize EGL context");
+	free(egl);
+	eglReleaseThread();
+	return NULL;
+}
+
 struct wlr_egl *wlr_egl_create_with_drm_fd(int drm_fd) {
-	struct wlr_egl *egl = egl_create();
+	struct wlr_egl *egl = egl_create(false);
 	if (egl == NULL) {
 		wlr_log(WLR_ERROR, "Failed to create EGL context");
 		return NULL;
@@ -591,12 +684,12 @@ struct wlr_egl *wlr_egl_create_with_context(EGLDisplay display,
 		return NULL;
 	}
 
-	struct wlr_egl *egl = egl_create();
+	struct wlr_egl *egl = egl_create(false);
 	if (egl == NULL) {
 		return NULL;
 	}
 
-	if (!egl_init_display(egl, display)) {
+	if (!egl_init_display(egl, display, false)) {
 		free(egl);
 		return NULL;
 	}
@@ -615,6 +708,10 @@ void wlr_egl_destroy(struct wlr_egl *egl) {
 	wlr_drm_format_set_finish(&egl->dmabuf_texture_formats);
 
 	eglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	if (egl->wl_display) {
+		assert(egl->exts.bind_wayland_display_wl);
+		egl->procs.eglUnbindWaylandDisplayWL(egl->display, egl->wl_display);
+	}
 	eglDestroyContext(egl->display, egl->context);
 
 	if (egl->exts.KHR_display_reference) {
@@ -630,6 +727,19 @@ void wlr_egl_destroy(struct wlr_egl *egl) {
 	}
 
 	free(egl);
+}
+
+bool wlr_egl_bind_display(struct wlr_egl *egl, struct wl_display *local_display) {
+	if (!egl->exts.bind_wayland_display_wl) {
+		return false;
+	}
+
+	if (egl->procs.eglBindWaylandDisplayWL(egl->display, local_display)) {
+		egl->wl_display = local_display;
+		return true;
+	}
+
+	return false;
 }
 
 EGLDisplay wlr_egl_get_display(struct wlr_egl *egl) {

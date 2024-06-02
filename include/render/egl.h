@@ -7,6 +7,7 @@ struct wlr_egl {
 	EGLDisplay display;
 	EGLContext context;
 	EGLDeviceEXT device; // may be EGL_NO_DEVICE_EXT
+	EGLConfig config;
 	struct gbm_device *gbm_device;
 
 	struct {
@@ -26,6 +27,10 @@ struct wlr_egl {
 		bool KHR_platform_gbm;
 		bool EXT_platform_device;
 		bool KHR_display_reference;
+
+		// Android extensions
+		bool bind_wayland_display_wl;
+		bool partial_update_ext;
 	} exts;
 
 	struct {
@@ -38,7 +43,14 @@ struct wlr_egl {
 		PFNEGLQUERYDISPLAYATTRIBEXTPROC eglQueryDisplayAttribEXT;
 		PFNEGLQUERYDEVICESTRINGEXTPROC eglQueryDeviceStringEXT;
 		PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT;
+
+		PFNEGLQUERYWAYLANDBUFFERWL eglQueryWaylandBufferWL;
+		PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
+		PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
+		PFNEGLSETDAMAGEREGIONKHRPROC eglSetDamageRegionKHR;
 	} procs;
+
+	struct wl_display *wl_display;
 
 	bool has_modifiers;
 	struct wlr_drm_format_set dmabuf_texture_formats;
@@ -53,6 +65,13 @@ struct wlr_egl_context {
 };
 
 /**
+ * Initializes an EGL context for android.
+ *
+ * Will attempt to load all possibly required API functions.
+ */
+struct wlr_egl *wlr_egl_create_for_android(void);
+
+/**
  * Initializes an EGL context for the given DRM FD.
  *
  * Will attempt to load all possibly required API functions.
@@ -64,6 +83,13 @@ struct wlr_egl *wlr_egl_create_with_drm_fd(int drm_fd);
  * unbinds a bound wayland display.
  */
 void wlr_egl_destroy(struct wlr_egl *egl);
+
+/**
+ * Binds the given display to the EGL instance.
+ * This will allow clients to create EGL surfaces from wayland ones and render
+ * to it.
+ */
+bool wlr_egl_bind_display(struct wlr_egl *egl, struct wl_display *local_display);
 
 /**
  * Creates an EGL image from the given dmabuf attributes. Check usability
