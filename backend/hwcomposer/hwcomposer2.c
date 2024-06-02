@@ -169,11 +169,12 @@ static bool hwcomposer2_set_power_mode(struct wlr_hwcomposer_output *output, boo
 
 	if (hwc2_compat_display_set_power_mode(hwc2_output->hwc2_display, enable ?
 		HWC2_POWER_MODE_ON : HWC2_POWER_MODE_OFF) == HWC2_ERROR_NONE) {
-        struct wlr_output_state state;
-        wlr_output_state_init(&state);
-        wlr_output_state_set_enabled(&state, enable);
+		struct wlr_output_state state;
+		wlr_output_state_init(&state);
+		wlr_output_state_set_enabled(&state, enable);
+		wlr_output_state_finish(&state);
 
-        if (enable && udev_backlight) {
+		if (enable && udev_backlight) {
 			char tmp[4];
 			snprintf(tmp, 4, "%d", hwc2_output->restore_brightness);
 			if (udev_device_set_sysattr_value(udev_backlight, "brightness", tmp) < 0)

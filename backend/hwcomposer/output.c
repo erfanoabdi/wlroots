@@ -20,6 +20,7 @@
 #include <wlr/util/log.h>
 #include "backend/hwcomposer.h"
 #include "util/time.h"
+#include "types/wlr_output.h"
 
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
@@ -65,55 +66,19 @@ static void schedule_frame(struct wlr_hwcomposer_output *output) {
 	}
 }
 
-static bool output_set_custom_mode(struct wlr_output *wlr_output, int32_t width,
-		int32_t height, int32_t refresh, int32_t phys_width, int32_t phys_height) {
+static void output_set_nativewindow(struct wlr_output *wlr_output) {
 	struct wlr_hwcomposer_output *output =
 		(struct wlr_hwcomposer_output *)wlr_output;
 	struct wlr_hwcomposer_backend *hwc_backend = output->hwc_backend;
 
-	wlr_log(WLR_INFO, "output_set_custom_mode width=%d height=%d refresh=%d idle_time=%ld",
-		width, height, refresh, hwc_backend->idle_time);
-
-	if (refresh <= 0) {
-		refresh = HWCOMPOSER_DEFAULT_REFRESH;
-	}
-
-	if (!output->egl_window) {
+	if (!output->egl_window && output->wlr_output.renderer) {
 		output->egl_window = HWCNativeWindowCreate(
 			output->hwc_width, output->hwc_height,
 			HAL_PIXEL_FORMAT_RGBA_8888, hwc_backend->impl->present, output);
 
-		wlr_renderer_set_nativewindow(output->wlr_output.renderer, output->egl_window);
+		wlr_renderer_set_nativewindow(output->wlr_output.renderer, (EGLNativeWindowType)output->egl_window);
+		wlr_log(WLR_DEBUG, "output_set_nativewindow: nativewindow created");
 	}
-
-	//wlr_egl_destroy_surface(&hwc_backend->egl, output->egl_surface);
-
-	/*output->egl_surface = eglCreateWindowSurface(hwc_backend->egl.display,
-		hwc_backend->egl.config, (EGLNativeWindowType)output->egl_window, NULL);
-	if (output->egl_surface == EGL_NO_SURFACE) {
-		wlr_log(WLR_ERROR, "Failed to recreate EGL surface");
-		wlr_output_destroy(wlr_output);
-		return false;
-	}*/
-	wlr_log(WLR_DEBUG, "set_custom_mode: surface created");
-
-	output->frame_delay = 1000000 / refresh;
-
-	//wlr_output_update_custom_mode(&output->wlr_output, width, height, refresh);
-	output->wlr_output.phys_width = phys_width;
-	output->wlr_output.phys_height = phys_height;
-	return true;
-}
-
-static bool output_test(struct wlr_output *wlr_output,
-		const struct wlr_output_state *state) {
-    //if ((state->committed & WLR_OUTPUT_STATE_BUFFER) &&
-    //    (wlr_output->pending.buffer_type & WLR_OUTPUT_STATE_BUFFER_SCANOUT)) {
-        /* Direct scan-out not supported yet */
-	//	return false;
-    //}
-
-    return true;
 }
 
 static bool output_commit(struct wlr_output *wlr_output,
@@ -128,10 +93,12 @@ static bool output_commit(struct wlr_output *wlr_output,
 		return false;
 	}
 
-    if (state->committed & WLR_OUTPUT_STATE_ENABLED) {
-        wlr_log(WLR_DEBUG, "output_commit: STATE_ENABLE, pending state %d", wlr_output->pending.enabled);
+	if (state->committed & WLR_OUTPUT_STATE_ENABLED) {
+		wlr_log(WLR_DEBUG, "output_commit: STATE_ENABLE, pending state %d", state->enabled);
+		if (state->enabled)
+			output_set_nativewindow(wlr_output);
 
-		if (!hwc_backend->impl->set_power_mode(output, wlr_output->pending.enabled)) {
+		if (!hwc_backend->impl->set_power_mode(output, state->enabled)) {
 			wlr_log(WLR_ERROR, "output_commit: unable to change display power mode");
 			return false;
 		}
@@ -141,44 +108,26 @@ static bool output_commit(struct wlr_output *wlr_output,
 			output->frame_delay) != 0) {
 			wlr_log(WLR_ERROR, "Unable to restart vsync timer");
 		}
-    }
+	}
 
-    if (!wlr_output->enabled) {
+	if (!wlr_output->enabled) {
 		return true;
 	}
 
-    if (state->committed & WLR_OUTPUT_STATE_MODE) {
-        if (!output_set_custom_mode(wlr_output,
-				wlr_output->pending.custom_mode.width,
-				wlr_output->pending.custom_mode.height,
-				wlr_output->pending.custom_mode.refresh,
-				wlr_output->phys_width,
-				wlr_output->phys_height)) {
-			return false;
+	if (state->committed & WLR_OUTPUT_STATE_BUFFER) {
+		const pixman_region32_t *damage = NULL;
+		if (state->committed & WLR_OUTPUT_STATE_DAMAGE) {
+			damage = &state->damage;
 		}
-    }
 
-    if (state->committed & WLR_OUTPUT_STATE_BUFFER) {
-        pixman_region32_t *damage = NULL;
-        if (state->committed & WLR_OUTPUT_STATE_DAMAGE) {
-            damage = &wlr_output->pending.damage;
-        }
-
-        /*switch (wlr_output->pending.buffer_type) {
-		case WLR_OUTPUT_STATE_BUFFER_RENDER:
-			if (!wlr_egl_swap_buffers(&hwc_backend->egl,
-					output->egl_surface, damage)) {
+		if (output->egl_window && output->wlr_output.renderer) {
+			if (!wlr_renderer_swap_buffers(output->wlr_output.renderer, damage)){
+				wlr_log(WLR_ERROR, "wlr_renderer_swap_buffers failed");
 				return false;
 			}
 			should_schedule_frame = true;
-			break;
-		case WLR_OUTPUT_STATE_BUFFER_SCANOUT:
-			wlr_log(WLR_ERROR, "WLR_OUTPUT_STATE_BUFFER_SCANOUT not implemented");
-			break;
-		}*/
-    }
-
-    //wlr_egl_unset_current(&hwc_backend->egl);
+		}
+	}
 
 	if (should_schedule_frame) {
 		// FIXME: wlroots submits a presentation event with commit_seq =
@@ -228,7 +177,6 @@ static void output_destroy(struct wlr_output *wlr_output) {
 static const struct wlr_output_impl output_impl = {
 	.destroy = output_destroy,
 	.commit = output_commit,
-	.test = output_test,
 };
 
 bool wlr_output_is_hwcomposer(struct wlr_output *wlr_output) {
@@ -293,41 +241,35 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 
 	struct wlr_hwcomposer_output *output = hwc_backend->impl->add_output(hwc_backend, display);
 	output->hwc_backend = hwc_backend;
-    struct wlr_output_state state;
-    wlr_output_state_init(&state);
-    wlr_output_init(&output->wlr_output, &hwc_backend->backend, &output_impl,
-		hwc_backend->display, &state);
 	struct wlr_output *wlr_output = &output->wlr_output;
-
 	wl_list_insert(&hwc_backend->outputs, &output->link);
 
 	output->should_destroy = false;
-
 	output->hwc_display_id = display;
 	output->hwc_is_primary = primary_display;
-
-	//output->egl_display = hwc_backend->egl.display;
-
-	if (!output_set_custom_mode(wlr_output, output->hwc_width,
-			output->hwc_height,
-			output->hwc_refresh ?
-				(1000000000000LL / output->hwc_refresh) : 0,
-			output->hwc_phys_width,
-			output->hwc_phys_height)) {
-		goto error;
+	output->wlr_output.phys_width = output->hwc_phys_width;
+	output->wlr_output.phys_height = output->hwc_phys_height;
+	int32_t refresh = output->hwc_refresh ? (1000000000000LL / output->hwc_refresh) : 0;
+	if (refresh <= 0) {
+		refresh = HWCOMPOSER_DEFAULT_REFRESH;
 	}
+	output->frame_delay = 1000000 / refresh;
 
-	/*if (wlr_egl_make_current(&hwc_backend->egl, output->egl_surface,
-			NULL)) {
-		wlr_renderer_begin(hwc_backend->renderer, wlr_output->width, wlr_output->height);
-		wlr_renderer_clear(hwc_backend->renderer, (float[]){ 1.0, 1.0, 1.0, 1.0 });
-		wlr_renderer_end(hwc_backend->renderer);
-	}*/
+	struct wlr_output_state state;
+	wlr_output_state_init(&state);
+	wlr_output_state_set_custom_mode(&state, output->hwc_width, output->hwc_height, refresh);
+	wlr_output_init(&output->wlr_output, &hwc_backend->backend, &output_impl,
+					hwc_backend->display, &state);
+	wlr_output_state_finish(&state);
+	wlr_log(WLR_INFO, "wlr_hwcomposer_add_output width=%d height=%d refresh=%d idle_time=%ld",
+			output->hwc_width, output->hwc_height, refresh, hwc_backend->idle_time);
 
-	strncpy(wlr_output->make, "hwcomposer", sizeof(wlr_output->make));
-	strncpy(wlr_output->model, "hwcomposer", sizeof(wlr_output->model));
-	snprintf(wlr_output->name, sizeof(wlr_output->name), "HWCOMPOSER-%ld",
-		display + 1);
+	wlr_output->make = malloc(64 * sizeof(char));
+	wlr_output->model = malloc(64 * sizeof(char));
+	wlr_output->name = malloc(64 * sizeof(char));
+	strncpy(wlr_output->make, "hwcomposer", 64);
+	strncpy(wlr_output->model, "hwcomposer", 64);
+	snprintf(wlr_output->name, 64, "HWCOMPOSER-%ld", display + 1);
 
 	struct wl_event_loop *ev = wl_display_get_event_loop(hwc_backend->display);
 	output->vsync_timer = wl_event_loop_add_timer(ev, on_vsync_timer_elapsed, output);
@@ -350,13 +292,9 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 
 	if (hwc_backend->started) {
 		wl_event_source_timer_update(output->vsync_timer, output->frame_delay);
-        wlr_output_state_set_enabled(&state, true);
-        wl_signal_emit_mutable(&hwc_backend->backend.events.new_output, wlr_output);
-    }
+		wlr_output_state_set_enabled(&state, true);
+		wl_signal_emit_mutable(&hwc_backend->backend.events.new_output, wlr_output);
+	}
 
 	return wlr_output;
-
-error:
-	wlr_output_destroy(&output->wlr_output);
-	return NULL;
 }

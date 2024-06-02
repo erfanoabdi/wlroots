@@ -89,6 +89,7 @@ static bool hwcomposer_set_power_mode(struct wlr_hwcomposer_output *output, bool
         struct wlr_output_state state;
         wlr_output_state_init(&state);
         wlr_output_state_set_enabled(&state, enable);
+        wlr_output_state_finish(&state);
 
         return true;
 	}

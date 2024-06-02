@@ -19,7 +19,6 @@ struct wlr_hwcomposer_backend {
 	struct wlr_backend backend;
 
 	const struct hwcomposer_impl *impl;
-	struct wlr_renderer *renderer;
 	struct wl_display *display;
 	struct wl_list outputs;
 	struct wl_list input_devices;
