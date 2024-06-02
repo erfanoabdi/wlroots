@@ -847,18 +847,12 @@ struct wlr_renderer *wlr_gles2_renderer_create(struct wlr_egl *egl) {
 
 	if (!renderer->egl->exts.EXT_image_dma_buf_import) {
 		wlr_log(WLR_ERROR, "EGL_EXT_image_dma_buf_import not supported");
-		free(renderer);
-		return NULL;
 	}
 	if (!check_gl_ext(exts_str, "GL_EXT_texture_format_BGRA8888")) {
 		wlr_log(WLR_ERROR, "BGRA8888 format not supported by GLES2");
-		free(renderer);
-		return NULL;
 	}
 	if (!check_gl_ext(exts_str, "GL_EXT_unpack_subimage")) {
 		wlr_log(WLR_ERROR, "GL_EXT_unpack_subimage not supported");
-		free(renderer);
-		return NULL;
 	}
 
 	renderer->exts.EXT_read_format_bgra =
