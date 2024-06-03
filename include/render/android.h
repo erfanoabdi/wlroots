@@ -23,6 +23,7 @@ struct wlr_android_buffer {
 	struct wl_list link; // wlr_gles2_renderer.buffers
 
 	EGLSurface egl_surface;
+	bool is_damaged;
 
 	struct wlr_addon addon;
 };
