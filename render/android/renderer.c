@@ -185,9 +185,7 @@ static int android_get_drm_fd(struct wlr_renderer *wlr_renderer) {
 }
 
 static uint32_t android_get_render_buffer_caps(struct wlr_renderer *wlr_renderer) {
-	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
-
-	return renderer->wlr_gles_renderer->impl->get_render_buffer_caps(renderer->wlr_gles_renderer);
+	return WLR_BUFFER_CAP_SHM | WLR_BUFFER_CAP_DATA_PTR;
 }
 
 static struct wlr_texture *android_texture_from_buffer(struct wlr_renderer *wlr_renderer,
