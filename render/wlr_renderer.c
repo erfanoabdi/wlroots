@@ -502,3 +502,10 @@ void wlr_renderer_set_nativewindow(struct wlr_renderer *renderer, EGLNativeWindo
 	if (renderer->impl->set_nativewindow)
 		renderer->impl->set_nativewindow(renderer, window);
 }
+
+bool wlr_renderer_swap_buffers(struct wlr_renderer *renderer, pixman_region32_t *damage) {
+	if (!renderer->impl->swap_buffers)
+		return false;
+
+	return renderer->impl->swap_buffers(renderer, damage);
+}

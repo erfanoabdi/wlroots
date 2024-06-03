@@ -93,7 +93,6 @@ static bool android_bind_buffer(struct wlr_renderer *wlr_renderer,
 	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
 
 	if (wlr_buffer == NULL) {
-		wlr_egl_unset_current(renderer->egl);
 		return true;
 	}
 
@@ -206,6 +205,28 @@ static void android_set_nativewindow(struct wlr_renderer *wlr_renderer, EGLNativ
 	renderer->window = window;
 }
 
+static bool android_swap_buffers(struct wlr_renderer *wlr_renderer, pixman_region32_t *damage) {
+	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
+
+	eglSwapInterval(renderer->egl->display, 0);
+
+	struct wlr_android_buffer *buffer, *buffer_tmp;
+	wl_list_for_each_safe(buffer, buffer_tmp, &renderer->buffers, link) {
+		if (!buffer || buffer->egl_surface == EGL_NO_SURFACE)
+			continue;
+
+		if (!eglSwapBuffers(renderer->egl->display, buffer->egl_surface)) {
+			wlr_log(WLR_ERROR, "Failed to swap buffers");
+			return false;
+		} else {
+            wlr_egl_unset_current(renderer->egl);
+            return true;
+		}
+	}
+
+	return true;
+}
+
 static const struct wlr_renderer_impl renderer_impl = {
 	.destroy = android_destroy,
 	.bind_buffer = android_bind_buffer,
@@ -225,6 +246,7 @@ static const struct wlr_renderer_impl renderer_impl = {
 	.texture_from_buffer = android_texture_from_buffer,
 	.render_timer_create = android_render_timer_create,
 	.set_nativewindow = android_set_nativewindow,
+	.swap_buffers = android_swap_buffers,
 };
 
 struct wlr_renderer *wlr_android_renderer_create(void) {

@@ -180,4 +180,9 @@ void wlr_render_timer_destroy(struct wlr_render_timer *timer);
  */
 void wlr_renderer_set_nativewindow(struct wlr_renderer *renderer, EGLNativeWindowType window);
 
+/**
+ * Swap buffers.
+ */
+bool wlr_renderer_swap_buffers(struct wlr_renderer *renderer, pixman_region32_t *damage);
+
 #endif
