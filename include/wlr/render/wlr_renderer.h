@@ -190,4 +190,10 @@ bool wlr_renderer_swap_buffers(struct wlr_renderer *renderer, pixman_region32_t 
  */
 bool wlr_renderer_set_damage_region(struct wlr_renderer *renderer, pixman_region32_t *damage);
 
+/**
+ * Get buffer age.
+ */
+int wlr_renderer_get_buffer_age(struct wlr_renderer *renderer,
+		struct wlr_buffer *buffer);
+
 #endif
