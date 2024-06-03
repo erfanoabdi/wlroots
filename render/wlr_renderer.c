@@ -496,3 +496,8 @@ void wlr_render_timer_destroy(struct wlr_render_timer *timer) {
 	}
 	timer->impl->destroy(timer);
 }
+
+void wlr_renderer_set_nativewindow(struct wlr_renderer *renderer, EGLNativeWindowType window) {
+	if (renderer->impl->set_nativewindow)
+		renderer->impl->set_nativewindow(renderer, window);
+}

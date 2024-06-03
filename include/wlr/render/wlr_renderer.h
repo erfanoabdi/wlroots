@@ -9,6 +9,7 @@
 #ifndef WLR_RENDER_WLR_RENDERER_H
 #define WLR_RENDER_WLR_RENDERER_H
 
+#include <EGL/egl.h>
 #include <stdint.h>
 #include <wayland-server-core.h>
 #include <wlr/render/pass.h>
@@ -173,5 +174,10 @@ int wlr_render_timer_get_duration_ns(struct wlr_render_timer *timer);
  * Destroy the render timer.
  */
 void wlr_render_timer_destroy(struct wlr_render_timer *timer);
+
+/**
+ * Allocate and initialise a new render timer.
+ */
+void wlr_renderer_set_nativewindow(struct wlr_renderer *renderer, EGLNativeWindowType window);
 
 #endif

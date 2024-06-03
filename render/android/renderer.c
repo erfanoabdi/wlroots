@@ -137,6 +137,12 @@ static struct wlr_render_timer *android_render_timer_create(struct wlr_renderer 
 	return renderer->wlr_gles_renderer->impl->render_timer_create(renderer->wlr_gles_renderer);
 }
 
+static void android_set_nativewindow(struct wlr_renderer *wlr_renderer, EGLNativeWindowType window) {
+	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
+
+	renderer->window = window;
+}
+
 static const struct wlr_renderer_impl renderer_impl = {
 	.destroy = android_destroy,
 	.bind_buffer = android_bind_buffer,
@@ -156,6 +162,7 @@ static const struct wlr_renderer_impl renderer_impl = {
 	.texture_from_buffer = android_texture_from_buffer,
 	.begin_buffer_pass = android_begin_buffer_pass,
 	.render_timer_create = android_render_timer_create,
+	.set_nativewindow = android_set_nativewindow,
 };
 
 struct wlr_renderer *wlr_android_renderer_create(void) {

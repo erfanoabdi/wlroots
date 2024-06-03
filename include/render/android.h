@@ -10,6 +10,7 @@ struct wlr_android_renderer {
 	struct wlr_renderer wlr_renderer;
 
 	struct wlr_egl *egl;
+	EGLNativeWindowType window;
 };
 
 struct wlr_android_renderer *android_get_renderer(

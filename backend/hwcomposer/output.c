@@ -78,6 +78,14 @@ static bool output_set_custom_mode(struct wlr_output *wlr_output, int32_t width,
 		refresh = HWCOMPOSER_DEFAULT_REFRESH;
 	}
 
+	if (!output->egl_window) {
+		output->egl_window = HWCNativeWindowCreate(
+			output->hwc_width, output->hwc_height,
+			HAL_PIXEL_FORMAT_RGBA_8888, hwc_backend->impl->present, output);
+
+		wlr_renderer_set_nativewindow(output->wlr_output.renderer, output->egl_window);
+	}
+
 	//wlr_egl_destroy_surface(&hwc_backend->egl, output->egl_surface);
 
 	/*output->egl_surface = eglCreateWindowSurface(hwc_backend->egl.display,
@@ -297,10 +305,6 @@ struct wlr_output *wlr_hwcomposer_add_output(struct wlr_backend *wlr_backend,
 
 	output->hwc_display_id = display;
 	output->hwc_is_primary = primary_display;
-
-	output->egl_window = HWCNativeWindowCreate(
-		output->hwc_width, output->hwc_height,
-		HAL_PIXEL_FORMAT_RGBA_8888, hwc_backend->impl->present, output);
 
 	//output->egl_display = hwc_backend->egl.display;
 
