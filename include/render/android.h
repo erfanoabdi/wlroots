@@ -14,6 +14,7 @@ struct wlr_android_renderer {
 	EGLNativeWindowType window;
 
 	struct wl_list buffers; // wlr_gles2_buffer.link
+	struct wlr_drm_format_set shm_formats;
 };
 
 struct wlr_android_buffer {

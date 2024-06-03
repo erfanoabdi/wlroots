@@ -4,6 +4,7 @@
 #include "render/android.h"
 #include "render/egl.h"
 #include "render/gles2.h"
+#include <drm_fourcc.h>
 
 static const struct wlr_renderer_impl renderer_impl;
 
@@ -153,15 +154,13 @@ static const uint32_t *android_get_shm_texture_formats(
 
 static const struct wlr_drm_format_set *android_get_dmabuf_texture_formats(
 	struct wlr_renderer *wlr_renderer) {
-	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
-
-	return renderer->wlr_gles_renderer->impl->get_dmabuf_texture_formats(renderer->wlr_gles_renderer);
+	return NULL;
 }
 
 static const struct wlr_drm_format_set *android_get_render_formats(struct wlr_renderer *wlr_renderer) {
 	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
 
-	return renderer->wlr_gles_renderer->impl->get_render_formats(renderer->wlr_gles_renderer);
+	return &renderer->shm_formats;
 }
 
 static enum wl_shm_format android_preferred_read_format(
@@ -250,6 +249,8 @@ struct wlr_renderer *wlr_android_renderer_create(void) {
 	wl_list_init(&renderer->buffers);
 	wlr_renderer_init(&renderer->wlr_renderer, &renderer_impl);
 	renderer->egl = egl;
+	wlr_drm_format_set_add(&renderer->shm_formats, DRM_FORMAT_XRGB8888, DRM_FORMAT_MOD_LINEAR);
+	wlr_drm_format_set_add(&renderer->shm_formats, DRM_FORMAT_ARGB8888, DRM_FORMAT_MOD_LINEAR);
 
 	return &renderer->wlr_renderer;
 }
