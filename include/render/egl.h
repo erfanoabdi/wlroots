@@ -31,6 +31,7 @@ struct wlr_egl {
 		// Android extensions
 		bool bind_wayland_display_wl;
 		bool partial_update_ext;
+		bool swap_buffers_with_damage;
 	} exts;
 
 	struct {
@@ -48,6 +49,7 @@ struct wlr_egl {
 		PFNEGLBINDWAYLANDDISPLAYWL eglBindWaylandDisplayWL;
 		PFNEGLUNBINDWAYLANDDISPLAYWL eglUnbindWaylandDisplayWL;
 		PFNEGLSETDAMAGEREGIONKHRPROC eglSetDamageRegionKHR;
+		PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC eglSwapBuffersWithDamage; // KHR or EXT
 	} procs;
 
 	struct wl_display *wl_display;
@@ -127,6 +129,12 @@ void wlr_egl_save_context(struct wlr_egl_context *context);
  * Restore EGL context that was previously saved using wlr_egl_save_current().
  */
 bool wlr_egl_restore_context(struct wlr_egl_context *context);
+
+bool wlr_egl_set_damage_region(struct wlr_egl *egl, EGLSurface surface,
+	pixman_region32_t *damage);
+
+bool wlr_egl_swap_buffers(struct wlr_egl *egl, EGLSurface surface,
+	pixman_region32_t *damage);
 
 /**
  * Make the EGL context current.
