@@ -53,6 +53,7 @@ struct wlr_renderer_impl {
 	struct wlr_render_timer *(*render_timer_create)(struct wlr_renderer *renderer);
 	void (*set_nativewindow)(struct wlr_renderer *renderer, EGLNativeWindowType window);
 	bool (*swap_buffers)(struct wlr_renderer *renderer, pixman_region32_t *damage);
+	bool (*set_damage_region)(struct wlr_renderer *renderer, pixman_region32_t *damage);
 };
 
 void wlr_renderer_init(struct wlr_renderer *renderer,

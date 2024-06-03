@@ -9,6 +9,7 @@
 #include <wlr/types/wlr_matrix.h>
 #include <wlr/types/wlr_output_layer.h>
 #include <wlr/util/log.h>
+#include <wlr/util/region.h>
 #include "render/allocator/allocator.h"
 #include "types/wlr_output.h"
 #include "util/env.h"
@@ -1034,6 +1035,45 @@ bool wlr_output_is_direct_scanout_allowed(struct wlr_output *output) {
 				"Direct scan-out disabled by software cursor");
 			return false;
 		}
+	}
+
+	return true;
+}
+
+bool wlr_output_handle_damage(struct wlr_output *wlr_output, pixman_region32_t *damage) {
+	if (damage == NULL || !wlr_output->renderer) {
+		return true;
+	}
+
+	/*
+	 * HACK: transform the damaged area to take in account output
+	 * transformations.
+	 *
+	 * This being here is wrong, as it should be a job of the compositor
+	 * and we're doing an assumption on behalf of them.
+	 */
+
+	int width, height;
+	wlr_output_transformed_resolution(wlr_output, &width, &height);
+
+	pixman_region32_t frame_damage;
+	pixman_region32_init(&frame_damage);
+
+	wlr_region_transform(&frame_damage, damage,
+						 wlr_output_transform_invert(wlr_output->transform), width, height);
+
+	if (wlr_output->needs_frame) {
+		/*
+		 * By checking for needs_frame, we're predicting the compositor's
+		 * behaviour, and it's horribly wrong.
+		 *
+		 * Unfortunately, the alternative would be to damage the whole
+		 * region when rollbacks happen.
+		 *
+		 * This will probably also break the "damage-tracking" debug
+		 * phoc feature.
+		 */
+		return wlr_renderer_set_damage_region(wlr_output->renderer, &frame_damage);
 	}
 
 	return true;

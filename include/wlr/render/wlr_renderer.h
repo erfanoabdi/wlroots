@@ -185,4 +185,9 @@ void wlr_renderer_set_nativewindow(struct wlr_renderer *renderer, EGLNativeWindo
  */
 bool wlr_renderer_swap_buffers(struct wlr_renderer *renderer, pixman_region32_t *damage);
 
+/**
+ * Set damage region.
+ */
+bool wlr_renderer_set_damage_region(struct wlr_renderer *renderer, pixman_region32_t *damage);
+
 #endif
