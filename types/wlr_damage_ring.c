@@ -80,12 +80,12 @@ void wlr_damage_ring_add_whole(struct wlr_damage_ring *ring) {
 
 void wlr_damage_ring_rotate(struct wlr_damage_ring *ring) {
 	// modular decrement
-	ring->previous_idx = ring->previous_idx +
+	/*ring->previous_idx = ring->previous_idx +
 		WLR_DAMAGE_RING_PREVIOUS_LEN - 1;
 	ring->previous_idx %= WLR_DAMAGE_RING_PREVIOUS_LEN;
 
 	pixman_region32_copy(&ring->previous[ring->previous_idx], &ring->current);
-	pixman_region32_clear(&ring->current);
+	pixman_region32_clear(&ring->current);*/
 }
 
 void wlr_damage_ring_get_buffer_damage(struct wlr_damage_ring *ring,
