@@ -555,6 +555,7 @@ const struct wlr_drm_format_set *wlr_output_get_primary_formats(
  */
 bool wlr_output_is_direct_scanout_allowed(struct wlr_output *output);
 
+bool wlr_output_handle_damage(struct wlr_output *wlr_output, pixman_region32_t *damage);
 
 struct wlr_output_cursor *wlr_output_cursor_create(struct wlr_output *output);
 bool wlr_output_cursor_set_buffer(struct wlr_output_cursor *cursor,

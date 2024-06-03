@@ -509,3 +509,10 @@ bool wlr_renderer_swap_buffers(struct wlr_renderer *renderer, pixman_region32_t 
 
 	return renderer->impl->swap_buffers(renderer, damage);
 }
+
+bool wlr_renderer_set_damage_region(struct wlr_renderer *renderer, pixman_region32_t *damage) {
+	if (!renderer->impl->set_damage_region)
+		return true;
+
+	return renderer->impl->set_damage_region(renderer, damage);
+}

@@ -1802,6 +1802,11 @@ bool wlr_scene_output_build_state(struct wlr_scene_output *scene_output,
 	wlr_damage_ring_get_buffer_damage(&scene_output->damage_ring,
 		buffer_age, &render_data.damage);
 
+	// HACK: this should really be done by the compositor rather than us
+	if (!wlr_output_handle_damage(output, &render_data.damage)) {
+		wlr_log(WLR_ERROR, "Error during handle_damage call");
+	}
+
 	pixman_region32_t background;
 	pixman_region32_init(&background);
 	pixman_region32_copy(&background, &render_data.damage);
