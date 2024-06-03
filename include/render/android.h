@@ -24,6 +24,7 @@ struct wlr_android_buffer {
 
 	EGLSurface egl_surface;
 	bool is_damaged;
+	int buffer_age;
 
 	struct wlr_addon addon;
 };

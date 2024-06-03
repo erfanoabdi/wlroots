@@ -32,6 +32,7 @@ struct wlr_egl {
 		bool bind_wayland_display_wl;
 		bool partial_update_ext;
 		bool swap_buffers_with_damage;
+		bool buffer_age_ext;
 	} exts;
 
 	struct {
@@ -142,7 +143,7 @@ bool wlr_egl_swap_buffers(struct wlr_egl *egl, EGLSurface surface,
  * Callers are expected to clear the current context when they are done by
  * calling wlr_egl_unset_current().
  */
-bool wlr_egl_make_current_with_surface(struct wlr_egl *egl, EGLSurface surface);
+bool wlr_egl_make_current_with_surface(struct wlr_egl *egl, EGLSurface surface, int *buffer_age);
 bool wlr_egl_make_current(struct wlr_egl *egl);
 
 bool wlr_egl_unset_current(struct wlr_egl *egl);

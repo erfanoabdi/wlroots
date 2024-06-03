@@ -320,6 +320,9 @@ static bool egl_init_display(struct wlr_egl *egl, EGLDisplay display, bool is_an
 		load_egl_proc(&egl->procs.eglDestroyImageKHR, "eglDestroyImageKHR");
 	}
 
+	egl->exts.buffer_age_ext =
+		check_egl_ext(display_exts_str, "EGL_EXT_buffer_age");
+
 	if (check_egl_ext(display_exts_str, "EGL_KHR_partial_update")) {
 		egl->exts.partial_update_ext = true;
 		load_egl_proc(&egl->procs.eglSetDamageRegionKHR,
@@ -771,17 +774,38 @@ bool wlr_egl_destroy_image(struct wlr_egl *egl, EGLImage image) {
 	return egl->procs.eglDestroyImageKHR(egl->display, image);
 }
 
-bool wlr_egl_make_current_with_surface(struct wlr_egl *egl, EGLSurface surface) {
+static int egl_get_buffer_age(struct wlr_egl *egl, EGLSurface surface) {
+	if (!egl->exts.buffer_age_ext && !egl->exts.partial_update_ext) {
+		return -1;
+	}
+
+	EGLint buffer_age;
+	EGLBoolean ok = eglQuerySurface(egl->display, surface,
+		EGL_BUFFER_AGE_EXT, &buffer_age);
+	if (!ok) {
+		wlr_log(WLR_ERROR, "Failed to get EGL surface buffer age");
+		return -1;
+	}
+
+	return buffer_age;
+}
+
+bool wlr_egl_make_current_with_surface(struct wlr_egl *egl, EGLSurface surface,
+		int *buffer_age) {
 	if (!eglMakeCurrent(egl->display, surface, surface,
 			egl->context)) {
 		wlr_log(WLR_ERROR, "eglMakeCurrent failed");
 		return false;
 	}
+
+	if (surface != EGL_NO_SURFACE && buffer_age != NULL)
+		*buffer_age = egl_get_buffer_age(egl, surface);
+
 	return true;
 }
 
 bool wlr_egl_make_current(struct wlr_egl *egl) {
-	return wlr_egl_make_current_with_surface(egl, EGL_NO_SURFACE);
+	return wlr_egl_make_current_with_surface(egl, EGL_NO_SURFACE, NULL);
 }
 
 bool wlr_egl_unset_current(struct wlr_egl *egl) {
