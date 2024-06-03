@@ -174,9 +174,19 @@ static void output_destroy(struct wlr_output *wlr_output) {
 	hwc_backend->impl->destroy_output(output);
 }
 
+static const struct wlr_drm_format_set *output_get_formats(
+	struct wlr_output *wlr_output, uint32_t buffer_caps) {
+	struct wlr_hwcomposer_output *output =
+		(struct wlr_hwcomposer_output *)wlr_output;
+	struct wlr_hwcomposer_backend *hwc_backend = output->hwc_backend;
+
+	return &hwc_backend->shm_formats;
+}
+
 static const struct wlr_output_impl output_impl = {
 	.destroy = output_destroy,
 	.commit = output_commit,
+	.get_primary_formats = output_get_formats,
 };
 
 bool wlr_output_is_hwcomposer(struct wlr_output *wlr_output) {

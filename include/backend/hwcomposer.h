@@ -11,6 +11,8 @@
 #include <hybris/hwc2/hwc2_compatibility_layer.h>
 #endif
 
+#include "render/drm_format_set.h"
+
 #define HWCOMPOSER_DEFAULT_REFRESH (60 * 1000) // 60 Hz
 
 struct hwcomposer_impl;
@@ -42,6 +44,7 @@ struct wlr_hwcomposer_backend {
 
 	// A udev instance for panel brightness control
 	struct udev *udev;
+    struct wlr_drm_format_set shm_formats;
 };
 
 struct wlr_hwcomposer_output {

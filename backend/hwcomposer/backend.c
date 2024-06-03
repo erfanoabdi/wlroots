@@ -15,6 +15,7 @@
 #include "time.h"
 #include "backend/hwcomposer.h"
 #include <android-config.h>
+#include <drm_fourcc.h>
 
 void *android_dlopen(const char *filename, int flags);
 void *android_dlsym(void *handle, const char *symbol);
@@ -193,6 +194,9 @@ struct wlr_backend *wlr_hwcomposer_backend_create(struct wl_display *display) {
 
 	hwc_backend->hwc_version = hwc_version;
 	hwc_backend->display = display;
+
+	wlr_drm_format_set_add(&hwc_backend->shm_formats, DRM_FORMAT_XRGB8888, DRM_FORMAT_MOD_LINEAR);
+	wlr_drm_format_set_add(&hwc_backend->shm_formats, DRM_FORMAT_ARGB8888, DRM_FORMAT_MOD_LINEAR);
 
 	hwc_backend->display_destroy.notify = handle_display_destroy;
 	wl_display_add_destroy_listener(display, &hwc_backend->display_destroy);
