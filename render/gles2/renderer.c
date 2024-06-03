@@ -276,13 +276,23 @@ static void gles2_scissor(struct wlr_renderer *wlr_renderer,
 
 	push_gles2_debug(renderer);
 	if (box != NULL) {
-		glScissor(box->x, box->y, box->width, box->height);
+		struct wlr_box gl_box;
+		wlr_box_transform(&gl_box, box, WL_OUTPUT_TRANSFORM_FLIPPED_180,
+						  renderer->viewport_width, renderer->viewport_height);
+
+		glScissor(gl_box.x, gl_box.y, gl_box.width, gl_box.height);
 		glEnable(GL_SCISSOR_TEST);
 	} else {
 		glDisable(GL_SCISSOR_TEST);
 	}
 	pop_gles2_debug(renderer);
 }
+
+static const float flip_180[9] = {
+	1.0f, 0.0f, 0.0f,
+	0.0f, -1.0f, 0.0f,
+	0.0f, 0.0f, 1.0f,
+};
 
 static bool gles2_render_subtexture_with_matrix(
 		struct wlr_renderer *wlr_renderer, struct wlr_texture *wlr_texture,
@@ -316,6 +326,7 @@ static bool gles2_render_subtexture_with_matrix(
 
 	float gl_matrix[9];
 	wlr_matrix_multiply(gl_matrix, renderer->projection, matrix);
+	wlr_matrix_multiply(gl_matrix, flip_180, gl_matrix);
 
 	push_gles2_debug(renderer);
 
@@ -365,6 +376,7 @@ static void gles2_render_quad_with_matrix(struct wlr_renderer *wlr_renderer,
 
 	float gl_matrix[9];
 	wlr_matrix_multiply(gl_matrix, renderer->projection, matrix);
+	wlr_matrix_multiply(gl_matrix, flip_180, gl_matrix);
 
 	push_gles2_debug(renderer);
 
