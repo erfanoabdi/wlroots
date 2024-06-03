@@ -101,7 +101,7 @@ static bool android_bind_buffer(struct wlr_renderer *wlr_renderer,
 		return false;
 	}
 
-	return wlr_egl_make_current_with_surface(renderer->egl, buffer->egl_surface);
+	return wlr_egl_make_current_with_surface(renderer->egl, buffer->egl_surface, &buffer->buffer_age);
 }
 
 static bool android_begin(struct wlr_renderer *wlr_renderer, uint32_t width,
