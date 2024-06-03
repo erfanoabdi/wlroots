@@ -234,6 +234,20 @@ static bool android_set_damage_region(struct wlr_renderer *wlr_renderer, pixman_
 	return true;
 }
 
+static int android_get_buffer_age(struct wlr_renderer *wlr_renderer,
+		struct wlr_buffer *wlr_buffer) {
+	struct wlr_android_renderer *renderer = android_get_renderer(wlr_renderer);
+
+	struct wlr_addon *addon =
+		wlr_addon_find(&wlr_buffer->addons, renderer, &buffer_addon_impl);
+	if (addon) {
+		struct wlr_android_buffer *buffer = wl_container_of(addon, buffer, addon);
+		return buffer->buffer_age;
+	}
+
+	return -1;
+}
+
 static const struct wlr_renderer_impl renderer_impl = {
 	.destroy = android_destroy,
 	.bind_buffer = android_bind_buffer,
@@ -255,6 +269,7 @@ static const struct wlr_renderer_impl renderer_impl = {
 	.set_nativewindow = android_set_nativewindow,
 	.swap_buffers = android_swap_buffers,
 	.set_damage_region = android_set_damage_region,
+	.get_buffer_age = android_get_buffer_age,
 };
 
 struct wlr_renderer *wlr_android_renderer_create(void) {

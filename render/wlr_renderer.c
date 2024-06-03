@@ -516,3 +516,11 @@ bool wlr_renderer_set_damage_region(struct wlr_renderer *renderer, pixman_region
 
 	return renderer->impl->set_damage_region(renderer, damage);
 }
+
+int wlr_renderer_get_buffer_age(struct wlr_renderer *renderer,
+		struct wlr_buffer *buffer) {
+	if (!renderer->impl->get_buffer_age)
+		return -1;
+
+	return renderer->impl->get_buffer_age(renderer, buffer);
+}
