@@ -369,6 +369,7 @@ static bool has_render_node(struct wlr_backend *backend) {
 static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int drm_fd) {
 	const char *renderer_options[] = {
 		"auto",
+		"android",
 		"gles2",
 		"vulkan",
 		"pixman",
@@ -380,6 +381,15 @@ static struct wlr_renderer *renderer_autocreate(struct wlr_backend *backend, int
 	struct wlr_renderer *renderer = NULL;
 
 	bool own_drm_fd = false;
+
+	if (strcmp(renderer_name, "android") == 0) {
+		renderer = wlr_android_renderer_create();
+		if (renderer) {
+			goto out;
+		} else {
+			log_creation_failure(is_auto, "Failed to create an Android renderer");
+		}
+	}
 
 	if ((is_auto && WLR_HAS_GLES2_RENDERER) || strcmp(renderer_name, "gles2") == 0) {
 		if (!open_preferred_drm_fd(backend, &drm_fd, &own_drm_fd)) {
