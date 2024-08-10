@@ -154,7 +154,13 @@ struct wlr_allocator *wlr_allocator_autocreate(struct wlr_backend *backend,
 	if (drm_fd < 0) {
 		drm_fd = wlr_renderer_get_drm_fd(renderer);
 	}
-	return allocator_autocreate_with_drm_fd(backend, renderer, drm_fd);
+    struct wlr_allocator *alloc = allocator_autocreate_with_drm_fd(backend, renderer, drm_fd);
+    if (alloc == NULL) {
+        if ((alloc = wlr_shm_allocator_create()) != NULL) {
+			return alloc;
+		}
+    }
+	return alloc;
 }
 
 void wlr_allocator_destroy(struct wlr_allocator *alloc) {
